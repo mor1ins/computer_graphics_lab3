@@ -1,1 +1,2 @@
-"# computer_graphics_lab3" 
+# Computer Graphic. Lab3s
+
