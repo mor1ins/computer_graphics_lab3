@@ -1,5 +1,34 @@
+let process = (obj, modelViewMatrix, rad, axis) => obj.rotate(modelViewMatrix, rad, axis);
+
+
+window.addEventListener('keydown', function (event)
+{
+    if (event.key === '1') {
+        process = (obj, modelViewMatrix, rad, axis, point) => obj.rotate(modelViewMatrix, rad, axis);
+    }
+    else if (event.key === '2') {
+        process = (obj, modelViewMatrix, rad, axis) => {
+            const translation = [-2, 0, -10];
+            obj.rotateAround(modelViewMatrix, rad, axis, translation);
+        };
+    }
+    else if (event.key === '3') {
+        process = (obj, modelViewMatrix, rad, axis) => {
+            const translation = [0, 0, -15];
+            const point = obj.position.map(
+                (p, i) => p - translation[i]
+            );
+
+            obj.translate(modelViewMatrix, [-point[0], -point[1], -point[2]]);
+            obj.rotate(modelViewMatrix, rad, axis);
+            obj.translate(modelViewMatrix, point);
+        };
+    }
+});
+
+
 class Cube {
-    constructor(webgl_context, size, translation, color) {
+    constructor(webgl_context, size, color, default_position=[0.0, 0.0, 0.0]) {
         this.gl = webgl_context;
 
         this.positions = ([
@@ -38,7 +67,9 @@ class Cube {
             -1.0, -1.0,  1.0,
             -1.0,  1.0,  1.0,
             -1.0,  1.0, -1.0,
-        ]).map((point, i) => point * size + translation[i % translation.length]);
+        ]).map((point, i) => point * size);
+
+        this.position = default_position;
 
         this.positionBuffer = this.gl.createBuffer();
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
@@ -107,10 +138,6 @@ class Cube {
         };
     }
 
-    getTriangleVertexCount() {
-        return this.triangles.length;
-    }
-
     setVertexPositions(programInfo) {
         const numComponents = 3;
         const type = this.gl.FLOAT;
@@ -149,6 +176,31 @@ class Cube {
             numComponents, type, normalize, stride, offset);
         this.gl.enableVertexAttribArray(programInfo.attribLocations.normal);
     }
+
+    to_position(modelViewMatrix) {
+        this.translate(modelViewMatrix, this.position);
+    }
+
+    translate(modelViewMatrix, translation) {
+        // return mat4.translate(modelViewMatrix, modelViewMatrix, this.position.map(
+        //     (p, i) => p + translation[i])
+        // );
+        return mat4.translate(modelViewMatrix, modelViewMatrix, translation);
+    }
+
+    rotate(modelViewMatrix, rad, axis) {
+        return mat4.rotate(modelViewMatrix, modelViewMatrix, rad, axis);
+    }
+
+    rotateAround(modelViewMatrix, rad, axis, point) {
+        const translation = this.position.map(
+            (p, i) => p - point[i]
+        );
+
+        this.translate(modelViewMatrix, translation.map(p => -p));
+        this.rotate(modelViewMatrix, rad, axis);
+        this.translate(modelViewMatrix, translation);
+    }
 }
 
 
@@ -174,10 +226,10 @@ class Scene {
         };
 
         this.objects = [
-            new Cube(this.gl, 1, [0, -2, 0], [1, 0.84, 0]), //gold
-            new Cube(this.gl, 1, [0, 0, 0], [1, 0.84, 0]), // gold
-            new Cube(this.gl, 1, [-2.5, -2, 0], [0.75, 0.75, 0.75]), //silver
-            new Cube(this.gl, 1, [2.5, -2, 0], [0.8, 0.5, 0.2]), // bronze
+            new Cube(this.gl, 1, [1, 0.84, 0], [-2, -2, -10]), //gold
+            new Cube(this.gl, 1, [1, 0.84, 0], [-2, 0, -10]), // gold
+            new Cube(this.gl, 1, [0.75, 0.75, 0.75], [-5, -2, -10]), //silver
+            new Cube(this.gl, 1, [0.8, 0.5, 0.2], [1, -2, -10]), // bronze
         ];
 
         this.then = 0;
@@ -217,14 +269,13 @@ class Scene {
         const projectionMatrix = mat4.create();
         mat4.perspective(projectionMatrix, this.fieldOfView, this.aspect, this.zNear, this.zFar);
 
-        const modelViewMatrix = mat4.create();
-        mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -10.0]);
-        // mat4.rotate(modelViewMatrix, modelViewMatrix, this.cubeRotation, [1, 0, 0]);
-        // mat4.translate(modelViewMatrix,
-        //     modelViewMatrix,
-        //     [-2, 0, 0.0]);
 
         this.objects.forEach(obj => {
+            const modelViewMatrix = mat4.create();
+            obj.to_position(modelViewMatrix);
+
+            process(obj, modelViewMatrix, this.cubeRotation, [0, 1, 0]);
+
             obj.setVertexPositions(this.programInfo);
             obj.setVertexColors(this.programInfo);
             obj.setNormals(this.programInfo);
@@ -273,24 +324,6 @@ class Scene {
         return shader;
     }
 }
-
-
-// var cubeRotation = 0.0;
-// var pos = { x: 0.1, y: 0.1 };
-// var step = 0.2;
-
-
-// window.addEventListener('keydown', function (event)
-// {
-//     if (event.keyCode === 87 || event.keyCode === 38) // W, Up
-//         pos.y += step;
-//     else if (event.keyCode === 65 || event.keyCode === 37) // A, Left
-//         pos.x -= step;
-//     else if (event.keyCode === 83 || event.keyCode === 40) // S, Down
-//         pos.y -= step;
-//     else if (event.keyCode === 68 || event.keyCode === 39) // D, Right
-//         pos.x += step;
-// });
 
 
 function main() {
