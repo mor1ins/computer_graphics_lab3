@@ -1,5 +1,5 @@
 class Cube {
-    constructor(webgl_context, size, translation) {
+    constructor(webgl_context, size, translation, color) {
         this.gl = webgl_context;
 
         this.positions = ([
@@ -45,12 +45,12 @@ class Cube {
         this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.positions), this.gl.STATIC_DRAW);
 
         this.faceColors = [
-            [1.0,  1.0,  1.0,  1.0],    // Front face: white
-            [1.0,  0.0,  0.0,  1.0],    // Back face: red
-            [0.0,  1.0,  0.0,  1.0],    // Top face: green
-            [0.0,  0.0,  1.0,  1.0],    // Bottom face: blue
-            [1.0,  1.0,  0.0,  1.0],    // Right face: yellow
-            [1.0,  0.0,  1.0,  1.0],    // Left face: purple
+            [...color,  1.0],    // Front face: white
+            [...color,  1.0],    // Back face: red
+            [...color,  1.0],    // Top face: green
+            [...color,  1.0],    // Bottom face: blue
+            [...color,  1.0],    // Right face: yellow
+            [...color,  1.0],    // Left face: purple
         ];
 
         this.colors = [].concat.apply([], this.faceColors.map(color => [...color, ...color, ...color, ...color]));
@@ -73,6 +73,24 @@ class Cube {
         this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.triangleBuffer);
         this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER,
             new Uint16Array(this.triangles), this.gl.STATIC_DRAW);
+
+
+        this.normals = [
+            [0, 0, 1],
+            [0, 0, -1],
+            [0, 1, 0],
+            [0, -1, 0],
+            [1, 0, 0],
+            [-1, 0, 0],
+        ];
+
+
+        // this.normals = [].concat.apply([], this.normals.map(n => [...n, ...n, ...n, ...n, ...n, ...n]));
+        this.normals = [].concat.apply([], this.normals.map(n => [...n, ...n, ...n, ...n]));
+
+        this.normalBuffer = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.normalBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.normals), this.gl.STATIC_DRAW);
     }
 
     getBuffers() {
@@ -80,10 +98,12 @@ class Cube {
             position: this.positionBuffer,
             color: this.colorBuffer,
             indices: this.triangleBuffer,
+            normal: this.normalBuffer,
 
             raw_position: this.positions,
             raw_color: this.faceColors,
             raw_indices: this.triangles,
+            raw_normals: this.normals,
         };
     }
 
@@ -101,8 +121,7 @@ class Cube {
         this.gl.vertexAttribPointer(
             programInfo.attribLocations.vertexPosition,
             numComponents, type, normalize, stride, offset);
-        this.gl.enableVertexAttribArray(
-            programInfo.attribLocations.vertexPosition);
+        this.gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
     }
 
     setVertexColors(programInfo) {
@@ -115,8 +134,20 @@ class Cube {
         this.gl.vertexAttribPointer(
             programInfo.attribLocations.vertexColor,
             numComponents, type, normalize, stride, offset);
-        this.gl.enableVertexAttribArray(
-            programInfo.attribLocations.vertexColor);
+        this.gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
+    }
+
+    setNormals(programInfo) {
+        const numComponents = 3;
+        const type = this.gl.FLOAT;
+        const normalize = false;
+        const stride = 0;
+        const offset = 0;
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.normalBuffer);
+        this.gl.vertexAttribPointer(
+            programInfo.attribLocations.normal,
+            numComponents, type, normalize, stride, offset);
+        this.gl.enableVertexAttribArray(programInfo.attribLocations.normal);
     }
 }
 
@@ -134,6 +165,7 @@ class Scene {
             attribLocations: {
                 vertexPosition: this.gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
                 vertexColor: this.gl.getAttribLocation(shaderProgram, 'aVertexColor'),
+                normal: this.gl.getAttribLocation(shaderProgram, 'aNormal'),
             },
             uniformLocations: {
                 projectionMatrix: this.gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
@@ -142,8 +174,10 @@ class Scene {
         };
 
         this.objects = [
-            new Cube(this.gl, 1, [0, 0, 0]),
-            new Cube(this.gl, 1.1, [3, 0, 0]),
+            new Cube(this.gl, 1, [0, -2, 0], [1, 0.84, 0]), //gold
+            new Cube(this.gl, 1, [0, 0, 0], [1, 0.84, 0]), // gold
+            new Cube(this.gl, 1, [-2.5, -2, 0], [0.75, 0.75, 0.75]), //silver
+            new Cube(this.gl, 1, [2.5, -2, 0], [0.8, 0.5, 0.2]), // bronze
         ];
 
         this.then = 0;
@@ -174,7 +208,7 @@ class Scene {
     }
 
     drawScene(deltaTime) {
-        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
         this.gl.clearDepth(1.0);
         this.gl.enable(this.gl.DEPTH_TEST);
         this.gl.depthFunc(this.gl.LEQUAL);
@@ -185,10 +219,7 @@ class Scene {
 
         const modelViewMatrix = mat4.create();
         mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -10.0]);
-        // mat4.rotate(modelViewMatrix,
-        //     modelViewMatrix,
-        //     cubeRotation,
-        //     [0, 0, 1]);
+        // mat4.rotate(modelViewMatrix, modelViewMatrix, this.cubeRotation, [1, 0, 0]);
         // mat4.translate(modelViewMatrix,
         //     modelViewMatrix,
         //     [-2, 0, 0.0]);
@@ -196,6 +227,7 @@ class Scene {
         this.objects.forEach(obj => {
             obj.setVertexPositions(this.programInfo);
             obj.setVertexColors(this.programInfo);
+            obj.setNormals(this.programInfo);
 
             const buffers = obj.getBuffers();
 
@@ -273,21 +305,38 @@ function main() {
     const vsSource = `
     attribute vec4 aVertexPosition;
     attribute vec4 aVertexColor;
+    attribute vec3 aNormal;
+    
     uniform mat4 uModelViewMatrix;
     uniform mat4 uProjectionMatrix;
-    varying lowp vec4 vColor;
+    
+    varying vec4 vColor;
+    varying vec3 vNormal;
 
     void main(void) {
       gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
       vColor = aVertexColor;
+      vNormal = aNormal;
     }
     `;
 
     const fsSource = `
-    varying lowp vec4 vColor;
+    precision mediump float;
     
+    varying vec4 vColor;
+    varying vec3 vNormal;
+        
     void main(void) {
-      gl_FragColor = vColor;
+        // vec3  light   = normalize(vec3( 1.5,  -1.2,  -2.0));
+        // float amount  = max(dot(vNormal, light),  0.0);
+        // vec4 finalColor = vColor; 
+        // finalColor.rgb *= amount;
+        //        
+        vec3 light = normalize(vec3(10.0, 5.0, 7.0));
+        float amount = max(dot(vNormal, light), 0.0);        
+        
+        gl_FragColor = vColor;
+        gl_FragColor.rgb *= amount;        
     }
     `;
 
