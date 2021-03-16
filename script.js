@@ -141,7 +141,10 @@ class Scene {
             }
         };
 
-        this.cube = new Cube(this.gl, 1, [0, 0, 0]);
+        this.objects = [
+            new Cube(this.gl, 1, [0, 0, 0]),
+            new Cube(this.gl, 1.1, [3, 0, 0]),
+        ];
 
         this.then = 0;
 
@@ -154,7 +157,7 @@ class Scene {
     }
 
     getBuffers() {
-        return this.cube.getBuffers();
+        return this.objects.map(obj => obj.getBuffers());
     }
 
     start() {
@@ -190,19 +193,20 @@ class Scene {
         //     modelViewMatrix,
         //     [-2, 0, 0.0]);
 
-        this.cube.setVertexPositions(this.programInfo);
-        this.cube.setVertexColors(this.programInfo);
+        this.objects.forEach(obj => {
+            obj.setVertexPositions(this.programInfo);
+            obj.setVertexColors(this.programInfo);
 
-        const buffers = this.getBuffers();
+            const buffers = obj.getBuffers();
 
-        this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
-        this.gl.useProgram(this.programInfo.program);
+            this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
+            this.gl.useProgram(this.programInfo.program);
 
-        this.gl.uniformMatrix4fv(this.programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
-        this.gl.uniformMatrix4fv(this.programInfo.uniformLocations.modelViewMatrix,false, modelViewMatrix);
+            this.gl.uniformMatrix4fv(this.programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
+            this.gl.uniformMatrix4fv(this.programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
 
-        this.gl.drawElements(this.gl.TRIANGLES, buffers.raw_indices.length, this.gl.UNSIGNED_SHORT, 0);
-
+            this.gl.drawElements(this.gl.TRIANGLES, buffers.raw_indices.length, this.gl.UNSIGNED_SHORT, 0);
+        });
         this.cubeRotation += deltaTime;
     }
 
